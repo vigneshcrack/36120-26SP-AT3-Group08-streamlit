@@ -1,0 +1,11 @@
+Group 08 - GitHub repositories (all private; staff have administrator access)
+Experiments:   https://github.com/vigneshcrack/36120-26SP-AT3-Group08-experiments
+Streamlit app: https://github.com/vigneshcrack/36120-26SP-AT3-Group08-streamlit
+Student A API: TBC
+Student B API: https://github.com/vigneshcrack/36120-26SP-AT3-Group08-StudentB-api
+Student C API: TBC
+Student D API: TBC
+
+Deployments
+Streamlit app: TBC (Streamlit Community Cloud)
+Student B API: https://group08-studentb-mri-api.onrender.com
