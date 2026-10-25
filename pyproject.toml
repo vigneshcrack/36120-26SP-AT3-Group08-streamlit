@@ -1,0 +1,29 @@
+[project]
+name = "at3-group08-streamlit"
+version = "1.0.0"
+description = "Crypto risk & opportunity dashboard (Group 08) - 36120 Advanced Machine Learning AT3"
+readme = "README.md"
+authors = [{ name = "Group 08" }]
+requires-python = "==3.12.13"
+dependencies = [
+    "streamlit==1.59.0",
+    "pandas==2.2.2",
+    "requests>=2.32",
+    "altair>=5.4",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.2", "ruff"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

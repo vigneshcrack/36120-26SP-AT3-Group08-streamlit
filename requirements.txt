@@ -1,0 +1,5 @@
+# Pinned for Streamlit Community Cloud / Docker (Python 3.12.13, versions from the AT3 brief)
+streamlit==1.59.0
+pandas==2.2.2
+requests==2.34.2
+altair==6.3.0
