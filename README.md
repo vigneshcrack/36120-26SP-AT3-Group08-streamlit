@@ -275,11 +275,12 @@ Successful responses are cached for 10 minutes (`st.cache_data`). Failures are *
 ## 12. Testing and quality
 
 ```bash
-uv run pytest      # 28 tests, no network needed
+uv run pytest      # 54 tests, no network needed
 uv run ruff check .
 ```
 
-The services are replaced by canned responses with the same structure as the live Market Risk API. The tests cover:
+The services are replaced by canned responses with the same structure as the live Market Risk and Trading
+Opportunity APIs. The tests cover:
 
 - **HTTP client:**
   - a success
@@ -288,8 +289,15 @@ The services are replaced by canned responses with the same structure as the liv
   - invalid JSON and a missing URL
   - failures that are never cached
 - **Chart and explanation helpers:** risk bands, number formatting, SHAP contribution ordering, the plain-language summary, component totals, and every chart's specification.
+- **Trading Opportunity helpers:** the ordered rating scale and confidence bands, the probability
+  distribution (which always shows all five ratings, even ones the model gives no mass to), per-token
+  ranking that keeps failed tokens visible, the baseline comparison built from `/model-metadata`, the
+  confusion matrix and feature-importance frames, the plain-language summary, and every chart's
+  specification.
 - **Pages,** using Streamlit's `AppTest`:
   - the Market Risk page with all four tabs
+  - the Trading Opportunity page, including that it offers all eight tokens and warns when the model
+    does not beat the persistence baseline
   - an API outage and the fallback-model warning
   - changing the token
   - the Overview page, under normal conditions and during an outage
