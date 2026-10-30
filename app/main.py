@@ -88,8 +88,10 @@ TEAM: list[Member] = [
     Member("student_c", "C", "Nandeeswari Kumaravelu", "25980436", "Trend Category", "Classification",
            "XGBoost Classifier", ("BTC",), ("Volatility20", "MaxPrice20", "MaxDrawdown", "GapRisk"),
            {"A": ("Return20",), "B": ("MA5", "MA20")}, None),
+    # Student D's model is pooled across every supported token, not BTC only: the notebook trains on all
+    # eight and models/student_d/metrics.json lists all eight under `supported_tokens`.
     Member("student_d", "D", "Vinnie Bui", "26160438", "Trading Opportunity Rating", "Classification",
-           "LightGBM Classifier", ("BTC",), ("VolumeSMA20", "RelativeVolume"),
+           "LightGBM Classifier", ALL_TOKENS, ("VolumeSMA20", "RelativeVolume"),
            {"A": ("Return20",), "B": ("MA5", "MA20"), "C": ("Volatility20",)}, None),
 ]
 MEMBERS = {m.key: m for m in TEAM}
