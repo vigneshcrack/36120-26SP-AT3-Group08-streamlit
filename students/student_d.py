@@ -12,6 +12,8 @@ Layout mirrors the other student pages: a hero, a token picker, then four tabs
 
 from __future__ import annotations
 
+from html import escape
+
 import altair as alt
 import pandas as pd
 import streamlit as st
@@ -95,6 +97,38 @@ def rating_index(label: str | None) -> int | None:
     return TOR_LABELS.index(label) if label in TOR_LABELS else None
 
 
+def rating_meaning(label: str | None) -> str:
+    """What a rating implies as an action, tolerant of a label off the contract's scale.
+
+    ``RATING_MEANING[label]`` would raise, and a ``KeyError`` here takes the whole page down over
+    one unexpected string - the opposite of how every other unknown is handled. A rating the scale
+    does not contain is reported as unrecognised instead.
+    """
+    if label in RATING_MEANING:
+        return RATING_MEANING[label]
+    return "not one of the five ratings this page knows - treat it as unrecognised"
+
+
+def rating_colour(label: str | None) -> str:
+    """Colour for a rating; neutral grey for anything off the scale."""
+    return RATING_COLOURS.get(label, RATING_COLOURS["Hold"])
+
+
+def format_metric(value, spec: str = ".3f") -> str:
+    """Format a measured figure, or ``-`` when the service did not report one.
+
+    ``metrics.get(key, nan)`` only defaults when the key is *absent*; an explicit ``null`` - which
+    is what the contract requires for a value that could not be computed - reaches the format string
+    as ``None`` and raises.
+    """
+    if value is None:
+        return "-"
+    try:
+        return format(float(value), spec)
+    except (TypeError, ValueError):
+        return str(value)
+
+
 def confidence_band(confidence: float | None) -> str:
     """Bucket a predicted-class probability, so the number is interpretable at a glance."""
     if confidence is None:
@@ -137,7 +171,7 @@ def probabilities_frame(prediction: dict) -> pd.DataFrame:
                 "rating": label,
                 "probability": float(probabilities.get(label, 0.0)),
                 "predicted": label == predicted,
-                "meaning": RATING_MEANING[label],
+                "meaning": rating_meaning(label),
             }
             for label in TOR_LABELS
         ]
@@ -289,7 +323,7 @@ def explain_in_words(prediction: dict) -> str:
 
     lines = [
         f"On **{as_of}** the model rates **{token}** as **{label}** for **{target_date}** "
-        f"({FORECAST_HORIZON} days ahead) - {RATING_MEANING[label]}."
+        f"({FORECAST_HORIZON} days ahead) - {rating_meaning(label)}."
     ]
     if confidence is not None:
         band = confidence_band(confidence)
@@ -298,12 +332,15 @@ def explain_in_words(prediction: dict) -> str:
             f"five, not a certainty - size any decision by this number."
         )
     current = prediction.get("current_rating")
-    if current in TOR_LABELS:
+    forecast_rank, current_rank = rating_index(label), rating_index(current)
+    if current_rank is not None:
         if current == label:
             lines.append(f"Today's rating is also **{current}**, so the model expects no change this week.")
-        else:
-            direction = "an improvement" if rating_index(label) > rating_index(current) else "a deterioration"
+        elif forecast_rank is not None:
+            direction = "an improvement" if forecast_rank > current_rank else "a deterioration"
             lines.append(f"Today's rating is **{current}**, so this forecast is {direction}.")
+        else:
+            lines.append(f"Today's rating is **{current}**.")
 
     missing = prediction.get("missing_features") or []
     if missing:
@@ -468,9 +505,9 @@ def _rating_tab(token: str, history_days: int) -> None:
 
         if label:
             st.markdown(
-                f'<div style="border-left:6px solid {RATING_COLOURS[label]};padding:10px 14px;'
+                f'<div style="border-left:6px solid {rating_colour(label)};padding:10px 14px;'
                 f'background:rgba(0,0,0,0.03);border-radius:6px">'
-                f'<strong>{label}</strong> - {RATING_MEANING[label]}</div>',
+                f'<strong>{escape(str(label))}</strong> - {rating_meaning(label)}</div>',
                 unsafe_allow_html=True,
             )
 
@@ -568,13 +605,13 @@ def _model_tab() -> None:
 
     core.section("Accuracy on the unseen test period")
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Macro-F1", f"{metrics.get('test_macro_f1', float('nan')):.3f}", border=True,
+    c1.metric("Macro-F1", format_metric(metrics.get("test_macro_f1")), border=True,
               help="Primary metric: the average F1 across all five ratings, so the rare ratings count as "
                    "much as the common ones.")
-    c2.metric("Balanced accuracy", f"{metrics.get('test_balanced_accuracy', float('nan')):.3f}", border=True,
+    c2.metric("Balanced accuracy", format_metric(metrics.get("test_balanced_accuracy")), border=True,
               help="Mean recall across the five ratings.")
-    c3.metric("Accuracy", f"{metrics.get('test_accuracy', float('nan')):.3f}", border=True)
-    c4.metric("Calibration error", f"{metrics.get('test_ece', float('nan')):.3f}", border=True,
+    c3.metric("Accuracy", format_metric(metrics.get("test_accuracy")), border=True)
+    c4.metric("Calibration error", format_metric(metrics.get("test_ece")), border=True,
               help="Expected calibration error: the gap between the stated confidence and how often the "
                    "model is actually right. Lower is better.")
 
@@ -663,7 +700,7 @@ def _model_tab() -> None:
         f"seed {metadata_value(meta, 'random_seed', 42)}\n"
         f"- **Cross-validation:** {metadata_value(meta, 'cv_strategy', 'not reported')}\n"
         f"- **Best cross-validated macro-F1:** "
-        f"{metadata_value(meta, 'best_cv_macro_f1', float('nan')):.3f} "
+        f"{format_metric(metadata_value(meta, 'best_cv_macro_f1'))} "
         f"(the test figure above is lower, as it should be)\n"
         f"- **Data:** {metadata_value(meta, 'data_source', 'Kraken daily candles')}"
     )

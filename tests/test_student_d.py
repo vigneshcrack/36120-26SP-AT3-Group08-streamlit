@@ -132,6 +132,41 @@ def test_explanation_survives_an_empty_response():
     assert "did not return a rating" in page.explain_in_words({})
 
 
+def test_a_rating_off_the_contract_scale_does_not_crash_the_page():
+    """A label outside the five is a deployment error, not a reason to show a stack trace.
+
+    Everything else on this page degrades to a message; before `rating_meaning` these three
+    lookups raised `KeyError` instead, which takes the whole tab down over one unexpected string.
+    """
+    assert "unrecognised" in page.rating_meaning("Mega Buy")
+    assert page.rating_colour("Mega Buy") == page.RATING_COLOURS["Hold"]
+
+    text = page.explain_in_words(make_tor_prediction(label="Mega Buy", current="Hold"))
+    assert "**Mega Buy**" in text
+    # With no position on the scale there is no direction to claim, so it is left out
+    # rather than guessed at.
+    assert "improvement" not in text and "deterioration" not in text
+    assert "Today's rating is **Hold**." in text
+
+    # The distribution still shows the five real ratings, with the unknown one absent.
+    frame = page.probabilities_frame(make_tor_prediction(label="Mega Buy"))
+    assert list(frame["rating"]) == page.TOR_LABELS
+    assert not frame["predicted"].any()
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [(0.3424, "0.342"), (0, "0.000"), (None, "-"), ("n/a", "n/a")],
+)
+def test_format_metric_handles_a_metric_the_service_reported_as_null(value, expected):
+    """CONTRACT.md requires an uncomputable value to be `null`, which `:.3f` cannot format.
+
+    `metrics.get(key, nan)` only defaults when the key is missing, so an explicit null reached
+    the format string as None and raised.
+    """
+    assert page.format_metric(value) == expected
+
+
 def test_charts_build():
     prediction = make_tor_prediction()
     history = page.history_frame(make_tor_features(30)["history"])
