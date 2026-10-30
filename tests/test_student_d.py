@@ -4,11 +4,15 @@ The pure helpers are tested directly; the page itself is exercised with Streamli
 broken widget or a crash on a degraded API response is caught here rather than in the browser.
 """
 
+import json
+from pathlib import Path
+
 import pytest
 from streamlit.testing.v1 import AppTest
 
 from app import main as core
 from students import student_d as page
+from students.student_d import metadata_value
 from tests.conftest import TOR_METADATA, make_tor_features, make_tor_prediction
 
 
@@ -128,6 +132,41 @@ def test_explanation_survives_an_empty_response():
     assert "did not return a rating" in page.explain_in_words({})
 
 
+def test_a_rating_off_the_contract_scale_does_not_crash_the_page():
+    """A label outside the five is a deployment error, not a reason to show a stack trace.
+
+    Everything else on this page degrades to a message; before `rating_meaning` these three
+    lookups raised `KeyError` instead, which takes the whole tab down over one unexpected string.
+    """
+    assert "unrecognised" in page.rating_meaning("Mega Buy")
+    assert page.rating_colour("Mega Buy") == page.RATING_COLOURS["Hold"]
+
+    text = page.explain_in_words(make_tor_prediction(label="Mega Buy", current="Hold"))
+    assert "**Mega Buy**" in text
+    # With no position on the scale there is no direction to claim, so it is left out
+    # rather than guessed at.
+    assert "improvement" not in text and "deterioration" not in text
+    assert "Today's rating is **Hold**." in text
+
+    # The distribution still shows the five real ratings, with the unknown one absent.
+    frame = page.probabilities_frame(make_tor_prediction(label="Mega Buy"))
+    assert list(frame["rating"]) == page.TOR_LABELS
+    assert not frame["predicted"].any()
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [(0.3424, "0.342"), (0, "0.000"), (None, "-"), ("n/a", "n/a")],
+)
+def test_format_metric_handles_a_metric_the_service_reported_as_null(value, expected):
+    """CONTRACT.md requires an uncomputable value to be `null`, which `:.3f` cannot format.
+
+    `metrics.get(key, nan)` only defaults when the key is missing, so an explicit null reached
+    the format string as None and raised.
+    """
+    assert page.format_metric(value) == expected
+
+
 def test_charts_build():
     prediction = make_tor_prediction()
     history = page.history_frame(make_tor_features(30)["history"])
@@ -183,3 +222,47 @@ def test_page_degrades_without_crashing_when_the_api_is_down(fake_tor_api):
     app = _run(fake_tor_api)
     assert app.error, "an outage must be reported to the user"
     assert any("could not be reached" in e.value for e in app.error)
+
+
+# ------------------------------------------------------------ the real service's shape
+# Captured from a running Student D API (GET /model-metadata). The service groups its
+# non-contract extras under `performance` and `training`, so a page that only looked at
+# the top level rendered an empty comparison table and never showed the persistence
+# warning - which is the one thing this page exists to be honest about.
+LIVE_METADATA = json.loads(
+    (Path(__file__).parent / "fixtures" / "student_d_model_metadata.json").read_text()
+)
+
+
+def test_metadata_value_finds_nested_blocks():
+    assert metadata_value({"baselines": {"a": 1}}, "baselines") == {"a": 1}
+    assert metadata_value({"performance": {"baselines": {"a": 1}}}, "baselines") == {"a": 1}
+    assert metadata_value({"training": {"random_seed": 42}}, "random_seed") == 42
+    # An empty block must not shadow a populated one further down.
+    assert metadata_value({"baselines": {}, "performance": {"baselines": {"a": 1}}}, "baselines") == {"a": 1}
+    # Documented rename: the service calls the tuned parameters `hyperparameters`.
+    assert metadata_value({"hyperparameters": {"max_depth": 5}}, "best_params") == {"max_depth": 5}
+    assert metadata_value({}, "baselines", {}) == {}
+
+
+@pytest.mark.parametrize(
+    "key",
+    ["metrics", "baselines", "confusion_matrix", "feature_importance", "degradation",
+     "per_class_recall", "per_token", "labels_in_test", "metrics_note", "training_period",
+     "best_params", "search_space", "best_cv_macro_f1", "cv_strategy", "n_trials",
+     "supported_tokens", "data_source", "random_seed"],
+)
+def test_every_block_the_page_needs_is_reachable_in_the_live_response(key):
+    assert metadata_value(LIVE_METADATA, key) is not None, f"{key} not found in the live response"
+
+
+def test_page_helpers_work_against_the_live_response():
+    """The regression this file exists for: the real nesting must still populate the page."""
+    baselines = page.baseline_frame(LIVE_METADATA)
+    assert len(baselines) == 5                      # the model plus four baselines
+    assert baselines["is_model"].sum() == 1
+    assert page.beats_persistence(LIVE_METADATA) is False
+
+    assert len(page.confusion_frame(LIVE_METADATA)) == 25
+    assert len(page.degradation_frame(LIVE_METADATA)) == 5
+    assert not page.importance_frame(LIVE_METADATA).empty

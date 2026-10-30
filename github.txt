@@ -4,7 +4,7 @@ Streamlit app: https://github.com/vigneshcrack/36120-26SP-AT3-Group08-streamlit
 Student A API: TBC
 Student B API: https://github.com/vigneshcrack/36120-26SP-AT3-Group08-StudentB-api
 Student C API: TBC
-Student D API: TBC
+Student D API: https://github.com/VincentBui25/36120-26SP-AT3-Group08-StudentD-api
 
 Deployments
 Streamlit app: TBC (Streamlit Community Cloud)

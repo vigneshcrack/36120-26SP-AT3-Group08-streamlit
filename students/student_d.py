@@ -12,6 +12,8 @@ Layout mirrors the other student pages: a hero, a token picker, then four tabs
 
 from __future__ import annotations
 
+from html import escape
+
 import altair as alt
 import pandas as pd
 import streamlit as st
@@ -60,10 +62,71 @@ HISTORY_OPTIONS = [30, 60, 90, 180, 365]
 CONFIDENCE_BANDS: list[tuple[float, str]] = [(0.70, "High"), (0.45, "Moderate"), (0.0, "Low")]
 
 
+# Where a service may put each optional metadata block. CONTRACT.md section 6.5 fixes
+# only the required keys at the top level, so a service is free to group its extras -
+# and Student D's groups them under `performance` and `training`. Looking in every
+# plausible place is what stops this page rendering a silently empty table.
+METADATA_SECTIONS = ("performance", "training")
+
+# Keys the service exposes under a different name from the training artefact.
+METADATA_ALIASES: dict[str, tuple[str, ...]] = {
+    "best_params": ("hyperparameters",),
+}
+
+
 # ----------------------------------------------------------------- pure helpers (tested)
+def metadata_value(metadata: dict, key: str, default=None):
+    """Read `key` from /model-metadata wherever the service happens to put it.
+
+    Checks the top level, then each known grouping section, then any documented
+    alias. Returns `default` only when the value is genuinely absent, so a caller
+    can tell "not reported" apart from "nested one level down".
+    """
+    for name in (key, *METADATA_ALIASES.get(key, ())):
+        if metadata.get(name) not in (None, {}, []):
+            return metadata[name]
+        for section in METADATA_SECTIONS:
+            block = metadata.get(section)
+            if isinstance(block, dict) and block.get(name) not in (None, {}, []):
+                return block[name]
+    return default
+
+
 def rating_index(label: str | None) -> int | None:
     """Position of a rating on the ordered scale, or ``None`` if it is not a known rating."""
     return TOR_LABELS.index(label) if label in TOR_LABELS else None
+
+
+def rating_meaning(label: str | None) -> str:
+    """What a rating implies as an action, tolerant of a label off the contract's scale.
+
+    ``RATING_MEANING[label]`` would raise, and a ``KeyError`` here takes the whole page down over
+    one unexpected string - the opposite of how every other unknown is handled. A rating the scale
+    does not contain is reported as unrecognised instead.
+    """
+    if label in RATING_MEANING:
+        return RATING_MEANING[label]
+    return "not one of the five ratings this page knows - treat it as unrecognised"
+
+
+def rating_colour(label: str | None) -> str:
+    """Colour for a rating; neutral grey for anything off the scale."""
+    return RATING_COLOURS.get(label, RATING_COLOURS["Hold"])
+
+
+def format_metric(value, spec: str = ".3f") -> str:
+    """Format a measured figure, or ``-`` when the service did not report one.
+
+    ``metrics.get(key, nan)`` only defaults when the key is *absent*; an explicit ``null`` - which
+    is what the contract requires for a value that could not be computed - reaches the format string
+    as ``None`` and raises.
+    """
+    if value is None:
+        return "-"
+    try:
+        return format(float(value), spec)
+    except (TypeError, ValueError):
+        return str(value)
 
 
 def confidence_band(confidence: float | None) -> str:
@@ -108,7 +171,7 @@ def probabilities_frame(prediction: dict) -> pd.DataFrame:
                 "rating": label,
                 "probability": float(probabilities.get(label, 0.0)),
                 "predicted": label == predicted,
-                "meaning": RATING_MEANING[label],
+                "meaning": rating_meaning(label),
             }
             for label in TOR_LABELS
         ]
@@ -147,7 +210,7 @@ def baseline_frame(metadata: dict) -> pd.DataFrame:
     Built from ``/model-metadata`` rather than written down, so the page cannot drift away from the
     artefact the service actually loaded.
     """
-    metrics = metadata.get("metrics") or {}
+    metrics = metadata_value(metadata, "metrics", {})
     rows = [
         {
             "Approach": "This model (LightGBM + Optuna)",
@@ -163,7 +226,7 @@ def baseline_frame(metadata: dict) -> pd.DataFrame:
         "stratified_random": "Random, matching the class balance",
         "lightgbm_defaults": "LightGBM with default settings",
     }
-    for name, scores in (metadata.get("baselines") or {}).items():
+    for name, scores in metadata_value(metadata, "baselines", {}).items():
         rows.append(
             {
                 "Approach": pretty.get(name, name.replace("_", " ").capitalize()),
@@ -178,8 +241,8 @@ def baseline_frame(metadata: dict) -> pd.DataFrame:
 
 def beats_persistence(metadata: dict) -> bool | None:
     """Whether the model clears the baseline that matters; ``None`` if either figure is missing."""
-    model = (metadata.get("metrics") or {}).get("test_macro_f1")
-    persistence = ((metadata.get("baselines") or {}).get("persistence") or {}).get("macro_f1")
+    model = metadata_value(metadata, "metrics", {}).get("test_macro_f1")
+    persistence = (metadata_value(metadata, "baselines", {}).get("persistence") or {}).get("macro_f1")
     if model is None or persistence is None:
         return None
     return model > persistence
@@ -187,7 +250,7 @@ def beats_persistence(metadata: dict) -> bool | None:
 
 def confusion_frame(metadata: dict) -> pd.DataFrame:
     """Long-form confusion matrix with each cell's share of its actual class."""
-    block = metadata.get("confusion_matrix") or {}
+    block = metadata_value(metadata, "confusion_matrix", {})
     labels, matrix = block.get("labels") or [], block.get("matrix") or []
     rows = []
     for actual, counts in zip(labels, matrix, strict=True):
@@ -217,7 +280,7 @@ def importance_frame(metadata: dict) -> pd.DataFrame:
             "Share of model": share,
             "Owner": owners.get(name, "-"),
         }
-        for name, share in (metadata.get("feature_importance") or {}).items()
+        for name, share in metadata_value(metadata, "feature_importance", {}).items()
     ]
     return pd.DataFrame(rows).sort_values("Share of model", ascending=False).reset_index(drop=True)
 
@@ -234,7 +297,7 @@ def degradation_frame(metadata: dict) -> pd.DataFrame:
     rows = [
         {"Scenario": pretty.get(name, name), "Macro-F1": scores.get("macro_f1"),
          "Accuracy": scores.get("accuracy")}
-        for name, scores in (metadata.get("degradation") or {}).items()
+        for name, scores in metadata_value(metadata, "degradation", {}).items()
     ]
     return pd.DataFrame(rows)
 
@@ -260,7 +323,7 @@ def explain_in_words(prediction: dict) -> str:
 
     lines = [
         f"On **{as_of}** the model rates **{token}** as **{label}** for **{target_date}** "
-        f"({FORECAST_HORIZON} days ahead) - {RATING_MEANING[label]}."
+        f"({FORECAST_HORIZON} days ahead) - {rating_meaning(label)}."
     ]
     if confidence is not None:
         band = confidence_band(confidence)
@@ -269,12 +332,15 @@ def explain_in_words(prediction: dict) -> str:
             f"five, not a certainty - size any decision by this number."
         )
     current = prediction.get("current_rating")
-    if current in TOR_LABELS:
+    forecast_rank, current_rank = rating_index(label), rating_index(current)
+    if current_rank is not None:
         if current == label:
             lines.append(f"Today's rating is also **{current}**, so the model expects no change this week.")
-        else:
-            direction = "an improvement" if rating_index(label) > rating_index(current) else "a deterioration"
+        elif forecast_rank is not None:
+            direction = "an improvement" if forecast_rank > current_rank else "a deterioration"
             lines.append(f"Today's rating is **{current}**, so this forecast is {direction}.")
+        else:
+            lines.append(f"Today's rating is **{current}**.")
 
     missing = prediction.get("missing_features") or []
     if missing:
@@ -439,9 +505,9 @@ def _rating_tab(token: str, history_days: int) -> None:
 
         if label:
             st.markdown(
-                f'<div style="border-left:6px solid {RATING_COLOURS[label]};padding:10px 14px;'
+                f'<div style="border-left:6px solid {rating_colour(label)};padding:10px 14px;'
                 f'background:rgba(0,0,0,0.03);border-radius:6px">'
-                f'<strong>{label}</strong> - {RATING_MEANING[label]}</div>',
+                f'<strong>{escape(str(label))}</strong> - {rating_meaning(label)}</div>',
                 unsafe_allow_html=True,
             )
 
@@ -528,24 +594,24 @@ def _model_tab() -> None:
         _show_failure("model information", result)
         return
     meta = result.data
-    metrics = meta.get("metrics") or {}
-    period = meta.get("training_period") or {}
+    metrics = metadata_value(meta, "metrics", {})
+    period = metadata_value(meta, "training_period", {})
 
     st.markdown(f"**{meta.get('algorithm', 'LightGBM Classifier')}** · version "
                 f"{meta.get('model_version', '?')} · target: {meta.get('target', 'Trading Opportunity Rating')} "
                 f"{FORECAST_HORIZON} days ahead · trained on {period.get('start', '?')} to "
                 f"{period.get('end', '?')} (Kraken daily candles, "
-                f"{len(meta.get('supported_tokens') or []) or 8} tokens).")
+                f"{len(metadata_value(meta, 'supported_tokens') or []) or 8} tokens).")
 
     core.section("Accuracy on the unseen test period")
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Macro-F1", f"{metrics.get('test_macro_f1', float('nan')):.3f}", border=True,
+    c1.metric("Macro-F1", format_metric(metrics.get("test_macro_f1")), border=True,
               help="Primary metric: the average F1 across all five ratings, so the rare ratings count as "
                    "much as the common ones.")
-    c2.metric("Balanced accuracy", f"{metrics.get('test_balanced_accuracy', float('nan')):.3f}", border=True,
+    c2.metric("Balanced accuracy", format_metric(metrics.get("test_balanced_accuracy")), border=True,
               help="Mean recall across the five ratings.")
-    c3.metric("Accuracy", f"{metrics.get('test_accuracy', float('nan')):.3f}", border=True)
-    c4.metric("Calibration error", f"{metrics.get('test_ece', float('nan')):.3f}", border=True,
+    c3.metric("Accuracy", format_metric(metrics.get("test_accuracy")), border=True)
+    c4.metric("Calibration error", format_metric(metrics.get("test_ece")), border=True,
               help="Expected calibration error: the gap between the stated confidence and how often the "
                    "model is actually right. Lower is better.")
 
@@ -572,7 +638,7 @@ def _model_tab() -> None:
             "Accuracy": st.column_config.NumberColumn(format="%.3f"),
         },
     )
-    note = meta.get("metrics_note")
+    note = metadata_value(meta, "metrics_note")
     if note:
         st.caption(note)
 
@@ -584,7 +650,7 @@ def _model_tab() -> None:
             st.altair_chart(confusion_chart(confusion), width="stretch")
             st.caption("Most errors sit next to the diagonal - one rating out, which barely changes what an "
                        "investor would do. Errors two or more ratings away are the expensive ones.")
-        in_test = meta.get("labels_in_test")
+        in_test = metadata_value(meta, "labels_in_test")
         if in_test and len(in_test) < len(TOR_LABELS):
             absent = [label for label in TOR_LABELS if label not in in_test]
             st.caption(f"⚠️ {', '.join(absent)} did not occur at all in the test period, so there is **no "
@@ -597,7 +663,7 @@ def _model_tab() -> None:
             st.caption("Six of the seven inputs come from a teammate's service, which is why the resilience "
                        "table below matters.")
 
-    recall = meta.get("per_class_recall") or {}
+    recall = metadata_value(meta, "per_class_recall", {})
     if recall:
         core.section("How often each rating is caught")
         st.dataframe(
@@ -616,7 +682,7 @@ def _model_tab() -> None:
         st.caption("The model is trained with peer features randomly blanked, so it keeps answering when a "
                    "service is unreachable instead of failing the request.")
 
-    per_token = meta.get("per_token") or {}
+    per_token = metadata_value(meta, "per_token", {})
     if per_token:
         core.section("Reliability by token")
         rows = [{"Token": token, "Macro-F1": scores.get("macro_f1"), "Accuracy": scores.get("accuracy"),
@@ -630,15 +696,17 @@ def _model_tab() -> None:
 
     core.section("How the model was tuned")
     st.markdown(
-        f"- **Search:** Optuna TPE, {meta.get('n_trials', '?')} trials, seed {meta.get('random_seed', 42)}\n"
-        f"- **Cross-validation:** {meta.get('cv_strategy', 'not reported')}\n"
-        f"- **Best cross-validated macro-F1:** {meta.get('best_cv_macro_f1', float('nan')):.3f} "
+        f"- **Search:** Optuna TPE, {metadata_value(meta, 'n_trials', '?')} trials, "
+        f"seed {metadata_value(meta, 'random_seed', 42)}\n"
+        f"- **Cross-validation:** {metadata_value(meta, 'cv_strategy', 'not reported')}\n"
+        f"- **Best cross-validated macro-F1:** "
+        f"{format_metric(metadata_value(meta, 'best_cv_macro_f1'))} "
         f"(the test figure above is lower, as it should be)\n"
-        f"- **Data:** {meta.get('data_source', 'Kraken daily candles')}"
+        f"- **Data:** {metadata_value(meta, 'data_source', 'Kraken daily candles')}"
     )
     with st.expander("Selected hyperparameters and the space they were searched in"):
-        best = meta.get("best_params") or {}
-        space = meta.get("search_space") or {}
+        best = metadata_value(meta, "best_params", {})
+        space = metadata_value(meta, "search_space", {})
         # `Selected` mixes numbers and strings (e.g. 158 and "balanced"); Arrow cannot type a mixed
         # column, so render everything as text rather than letting Streamlit guess and warn.
         st.dataframe(

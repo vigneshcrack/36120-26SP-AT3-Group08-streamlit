@@ -4,7 +4,7 @@
 
 ![Python](https://img.shields.io/badge/python-3.12.13-3776AB?logo=python&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.59.0-FF4B4B?logo=streamlit&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-28%20passing-0ca30c)
+![Tests](https://img.shields.io/badge/tests-79%20passing-0ca30c)
 ![Docker](https://img.shields.io/badge/Docker-healthy-2496ED?logo=docker&logoColor=white)
 
 | | |
@@ -61,7 +61,7 @@ The app gives an investor a single place to answer four questions about the comi
 
 Each indicator comes from its own FastAPI service deployed on Render. The app runs **no model itself**: it only calls the services, caches their answers and presents them with explanations.
 
-The group product covers **Bitcoin** across all four indicators. The **Market Risk** service goes further and covers all eight supported tokens: BTC, ETH, XRP, SOL, DOGE, XLM, TRX and XMR.
+The group product covers **Bitcoin** across all four indicators. **Market Risk (B)** and **Trading Opportunity (D)** go further and cover all eight supported tokens: BTC, ETH, XRP, SOL, DOGE, XLM, TRX and XMR — each is served by a single model pooled across the eight, so their per-token numbers are directly comparable.
 
 ---
 
@@ -73,7 +73,7 @@ The group product covers **Bitcoin** across all four indicators. The **Market Ri
 | **Asset Performance (A)** | `/performance` | Student A's page |
 | **Market Risk (B)** | `/market-risk` | Four tabs, described below |
 | **Trend Category (C)** | `/trend` | Student C's page |
-| **Trading Opportunity (D)** | `/opportunity` | Student D's page |
+| **Trading Opportunity (D)** | `/opportunity` | Four tabs, described below |
 
 **Market Risk (B) tabs**
 - **Forecast:**
@@ -89,6 +89,21 @@ The group product covers **Bitcoin** across all four indicators. The **Market Ri
   - permutation importance and accuracy when a peer service is down
   - the Optuna hyperparameters and the model's limitations
 - **API:** the endpoint list, live status and latency, an example request, the live JSON response and the error format.
+
+**Trading Opportunity (D) tabs**
+- **Rating:**
+  - the rating for t+7, its confidence and confidence band, and what the rating implies as an action
+  - the probability across all five ratings, including any the model gives no mass to
+  - an analyst summary assembled only from values the API returned
+  - the model inputs with the service each came from, and relative-volume and price history
+- **All 8 tokens:** every token ranked best-opportunity-first; a token whose call failed is listed as Unavailable rather than dropped.
+- **Model & methodology:** test metrics, the comparison against all four baselines, the confusion matrix, feature importance by owning student, per-class recall, the peer-outage degradation table, per-token reliability and the tuning setup.
+- **API:** the endpoint list, live status, an example request, the live JSON response and the error contract.
+
+Every figure on D's page is read from `GET /model-metadata`, never written into the page, so it cannot
+drift from the artefact the service loaded. Where the metadata shows the model losing to the
+persistence baseline on macro-F1 — which it currently does — the page says so in a warning above the
+comparison table rather than leaving the reader to work it out.
 
 ---
 
@@ -108,7 +123,7 @@ flowchart LR
 ```
 
 - **Feature exchange:** each service owns some engineered features and serves them on `POST /features`; the others call it. The contract is in `CONTRACT.md` in the experiments repository.
-- **Single source of truth:** all features are computed by the shared package [`mykrml-25740287`](https://test.pypi.org/project/mykrml-25740287/), so every service uses identical definitions.
+- **Single source of truth:** a feature formula is written once, not re-typed per service. Students A–C install the published package [`mykrml-25740287`](https://test.pypi.org/project/mykrml-25740287/); Student D's service vendors a byte-identical copy of the same group implementation under `app/core/`, refreshed by a sync script, because it must stay independently deployable. Either route, training and serving share one code path.
 - **The app** calls `POST /predict` (and `/risk-history` and `/model-metadata` for the Market Risk page). Successful answers are cached for 10 minutes.
 
 ---
@@ -275,7 +290,7 @@ Successful responses are cached for 10 minutes (`st.cache_data`). Failures are *
 ## 12. Testing and quality
 
 ```bash
-uv run pytest      # 54 tests, no network needed
+uv run pytest      # 79 tests, no network needed
 uv run ruff check .
 ```
 
@@ -293,7 +308,10 @@ Opportunity APIs. The tests cover:
   distribution (which always shows all five ratings, even ones the model gives no mass to), per-token
   ranking that keeps failed tokens visible, the baseline comparison built from `/model-metadata`, the
   confusion matrix and feature-importance frames, the plain-language summary, and every chart's
-  specification.
+  specification. The metadata-shape tests run against a response **captured from a running service**
+  (`tests/fixtures/student_d_model_metadata.json`) rather than a hand-written fixture: a hand-written
+  one is what previously hid a real bug, because it was written from the training artefact's flat
+  shape and so agreed with the page's wrong assumption about where the service nests its extras.
 - **Pages,** using Streamlit's `AppTest`:
   - the Market Risk page with all four tabs
   - the Trading Opportunity page, including that it offers all eight tokens and warns when the model
