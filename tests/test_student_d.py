@@ -4,11 +4,15 @@ The pure helpers are tested directly; the page itself is exercised with Streamli
 broken widget or a crash on a degraded API response is caught here rather than in the browser.
 """
 
+import json
+from pathlib import Path
+
 import pytest
 from streamlit.testing.v1 import AppTest
 
 from app import main as core
 from students import student_d as page
+from students.student_d import metadata_value
 from tests.conftest import TOR_METADATA, make_tor_features, make_tor_prediction
 
 
@@ -183,3 +187,47 @@ def test_page_degrades_without_crashing_when_the_api_is_down(fake_tor_api):
     app = _run(fake_tor_api)
     assert app.error, "an outage must be reported to the user"
     assert any("could not be reached" in e.value for e in app.error)
+
+
+# ------------------------------------------------------------ the real service's shape
+# Captured from a running Student D API (GET /model-metadata). The service groups its
+# non-contract extras under `performance` and `training`, so a page that only looked at
+# the top level rendered an empty comparison table and never showed the persistence
+# warning - which is the one thing this page exists to be honest about.
+LIVE_METADATA = json.loads(
+    (Path(__file__).parent / "fixtures" / "student_d_model_metadata.json").read_text()
+)
+
+
+def test_metadata_value_finds_nested_blocks():
+    assert metadata_value({"baselines": {"a": 1}}, "baselines") == {"a": 1}
+    assert metadata_value({"performance": {"baselines": {"a": 1}}}, "baselines") == {"a": 1}
+    assert metadata_value({"training": {"random_seed": 42}}, "random_seed") == 42
+    # An empty block must not shadow a populated one further down.
+    assert metadata_value({"baselines": {}, "performance": {"baselines": {"a": 1}}}, "baselines") == {"a": 1}
+    # Documented rename: the service calls the tuned parameters `hyperparameters`.
+    assert metadata_value({"hyperparameters": {"max_depth": 5}}, "best_params") == {"max_depth": 5}
+    assert metadata_value({}, "baselines", {}) == {}
+
+
+@pytest.mark.parametrize(
+    "key",
+    ["metrics", "baselines", "confusion_matrix", "feature_importance", "degradation",
+     "per_class_recall", "per_token", "labels_in_test", "metrics_note", "training_period",
+     "best_params", "search_space", "best_cv_macro_f1", "cv_strategy", "n_trials",
+     "supported_tokens", "data_source", "random_seed"],
+)
+def test_every_block_the_page_needs_is_reachable_in_the_live_response(key):
+    assert metadata_value(LIVE_METADATA, key) is not None, f"{key} not found in the live response"
+
+
+def test_page_helpers_work_against_the_live_response():
+    """The regression this file exists for: the real nesting must still populate the page."""
+    baselines = page.baseline_frame(LIVE_METADATA)
+    assert len(baselines) == 5                      # the model plus four baselines
+    assert baselines["is_model"].sum() == 1
+    assert page.beats_persistence(LIVE_METADATA) is False
+
+    assert len(page.confusion_frame(LIVE_METADATA)) == 25
+    assert len(page.degradation_frame(LIVE_METADATA)) == 5
+    assert not page.importance_frame(LIVE_METADATA).empty
