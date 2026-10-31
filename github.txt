@@ -9,5 +9,5 @@ Student D API: https://github.com/VincentBui25/36120-26SP-AT3-Group08-StudentD-a
 Deployments
 Streamlit app: TBC (Streamlit Community Cloud)
 Student B API: https://group08-studentb-mri-api.onrender.com
-Student D API: https://group08-studentd-tor-api.onrender.com
+Student D API: https://three6120-26sp-at3-group08-studentd-api-1.onrender.com
 Student C API: https://three6120-26sp-at3-group08-studentc-api.onrender.com/
