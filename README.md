@@ -9,7 +9,7 @@
 
 | | |
 |---|---|
-| **Live app** | _Streamlit Community Cloud URL – add after deployment_ |
+| **Live app** | **https://group08-crypto-intelligence.streamlit.app** |
 | **Subject** | 36120 Advanced Machine Learning Application, Spring 2026, University of Technology Sydney – AT3 Data Product with Machine Learning |
 | **Group** | 08 |
 | **Data source** | Kraken public OHLC API (daily USD candles), fetched by the services at request time |

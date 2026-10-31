@@ -7,7 +7,7 @@ Student C API: https://github.com/nandeeswari19-web/36120-26SP-AT3-Group08-Stude
 Student D API: https://github.com/VincentBui25/36120-26SP-AT3-Group08-StudentD-api
 
 Deployments
-Streamlit app: TBC (Streamlit Community Cloud)
+Streamlit app: https://group08-crypto-intelligence.streamlit.app
 Student A API: https://group08-studenta-api-api.onrender.com
 Student B API: https://group08-studentb-mri-api.onrender.com
 Student D API: https://three6120-26sp-at3-group08-studentd-api-1.onrender.com

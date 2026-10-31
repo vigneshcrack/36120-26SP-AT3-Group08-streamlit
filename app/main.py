@@ -88,7 +88,8 @@ TEAM: list[Member] = [
            "https://group08-studentb-mri-api.onrender.com"),
     Member("student_c", "C", "Nandeeswari Kumaravelu", "25980436", "Trend Category", "Classification",
            "XGBoost Classifier", ALL_TOKENS, ("Volatility20", "MaxPrice20", "MaxDrawdown", "GapRisk"),
-           {"A": ("Return20", "Return5"), "B": ("MA5", "MA20")}, None),
+           {"A": ("Return20", "Return5"), "B": ("MA5", "MA20")},
+           "https://three6120-26sp-at3-group08-studentc-api.onrender.com"),
     # Student D's model is pooled across every supported token, not BTC only: the notebook trains on all
     # eight and models/student_d/metrics.json lists all eight under `supported_tokens`.
     Member("student_d", "D", "Vinnie Bui", "26160438", "Trading Opportunity Rating", "Classification",
