@@ -92,7 +92,8 @@ TEAM: list[Member] = [
     # eight and models/student_d/metrics.json lists all eight under `supported_tokens`.
     Member("student_d", "D", "Vinnie Bui", "26160438", "Trading Opportunity Rating", "Classification",
            "LightGBM Classifier", ALL_TOKENS, ("VolumeSMA20", "RelativeVolume"),
-           {"A": ("Return20",), "B": ("MA5", "MA20"), "C": ("Volatility20",)}, None),
+           {"A": ("Return20",), "B": ("MA5", "MA20"), "C": ("Volatility20",)},
+           "https://group08-studentd-tor-api.onrender.com"),
 ]
 MEMBERS = {m.key: m for m in TEAM}
 BY_LETTER = {m.letter: m for m in TEAM}
