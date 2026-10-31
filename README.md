@@ -164,7 +164,7 @@ Each page finds its service through `core.api_url("student_x")`, which checks th
 # .streamlit/secrets.toml   (copy from .streamlit/secrets.toml.example – never commit this file)
 STUDENT_A_API_URL = "https://<student-a-service>.onrender.com"
 STUDENT_B_API_URL = "https://group08-studentb-mri-api.onrender.com"
-STUDENT_C_API_URL = "https://<student-c-service>.onrender.com"
+STUDENT_C_API_URL = "https://three6120-26sp-at3-group08-studentc-api.onrender.com/"
 STUDENT_D_API_URL = "https://<student-d-service>.onrender.com"
 ```
 
