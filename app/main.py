@@ -79,8 +79,9 @@ ALL_TOKENS = tuple(TOKENS)
 
 TEAM: list[Member] = [
     Member("student_a", "A", "Ryan Cruikshank", "13191263", "Asset Performance Index", "Regression",
-           "XGBoost Regressor", ("BTC",), ("DailyReturn", "Return5", "Return20", "Momentum"),
-           {"B": ("TrendStrength",), "C": ("Volatility20",), "D": ("RelativeVolume",)}, None),
+           "XGBoost Regressor", ALL_TOKENS, ("DailyReturn", "Return5", "Return20", "Momentum"),
+           {"B": ("TrendStrength",), "C": ("Volatility20",), "D": ("RelativeVolume",)},
+           "https://group08-studenta-api-api.onrender.com"),
     Member("student_b", "B", "Vignesh Selvam", "25740287", "Market Risk Index", "Regression",
            "LightGBM Regressor", ALL_TOKENS, ("MA5", "MA20", "TrendStrength"),
            {"A": ("Return20",), "C": ("Volatility20", "MaxPrice20", "GapRisk")},
