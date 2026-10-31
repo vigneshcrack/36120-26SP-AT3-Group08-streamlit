@@ -93,7 +93,7 @@ TEAM: list[Member] = [
     Member("student_d", "D", "Vinnie Bui", "26160438", "Trading Opportunity Rating", "Classification",
            "LightGBM Classifier", ALL_TOKENS, ("VolumeSMA20", "RelativeVolume"),
            {"A": ("Return20",), "B": ("MA5", "MA20"), "C": ("Volatility20",)},
-           "https://group08-studentd-tor-api.onrender.com"),
+           "https://three6120-26sp-at3-group08-studentd-api-1.onrender.com"),
 ]
 MEMBERS = {m.key: m for m in TEAM}
 BY_LETTER = {m.letter: m for m in TEAM}
