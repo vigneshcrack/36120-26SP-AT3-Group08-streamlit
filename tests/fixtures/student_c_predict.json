@@ -1,0 +1,77 @@
+{
+ "prediction": "Sideways",
+ "confidence": 0.4057,
+ "probabilities": {
+  "Strong Downtrend": 0.0422,
+  "Downtrend": 0.2811,
+  "Sideways": 0.4057,
+  "Uptrend": 0.2476,
+  "Strong Uptrend": 0.0234
+ },
+ "forecast_horizon": 7,
+ "prediction_date": "2026-10-29",
+ "token": "BTC",
+ "as_of_date": "2026-10-22",
+ "model_version": "1.0.0",
+ "missing_features": [],
+ "feature_sources": {
+  "Return20": "student_a_api",
+  "Return5": "student_a_api",
+  "MA5": "student_b_api",
+  "MA20": "student_b_api",
+  "TrendScoreProj7": "student_c (local, Kraken)",
+  "Volatility20": "student_c (local, Kraken)",
+  "MaxDrawdown": "student_c (local, Kraken)",
+  "GapRisk": "student_c (local, Kraken)"
+ },
+ "peer_status": {
+  "student_a": "ok",
+  "student_b": "ok"
+ },
+ "features_used": {
+  "Return20": -0.037724,
+  "MA5_MA20_Ratio": 0.992939,
+  "TrendScore": -0.01626,
+  "Return5": -0.000812,
+  "TrendScoreProj7": -0.010084
+ },
+ "explanation": [
+  {
+   "feature": "TrendScoreProj7",
+   "value": -0.010084,
+   "contribution": 0.1857
+  },
+  {
+   "feature": "Return5",
+   "value": -0.000812,
+   "contribution": 0.1677
+  },
+  {
+   "feature": "Return20",
+   "value": -0.037724,
+   "contribution": 0.1407
+  },
+  {
+   "feature": "MA5_MA20_Ratio",
+   "value": 0.992939,
+   "contribution": 0.0498
+  },
+  {
+   "feature": "TrendScore",
+   "value": -0.01626,
+   "contribution": 0.0181
+  }
+ ],
+ "current": {
+  "date": "2026-10-22",
+  "close": 81315.9,
+  "trend": "Sideways",
+  "trend_score": -0.01626,
+  "projected_trend_score_t7": -0.010084,
+  "projected_trend_if_flat": "Sideways",
+  "MA5": 82423.98,
+  "MA20": 83010.13500000001,
+  "Return20": -0.037724,
+  "Volatility20": 0.015315
+ }
+}

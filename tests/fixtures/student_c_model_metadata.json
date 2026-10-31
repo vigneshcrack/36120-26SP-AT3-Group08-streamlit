@@ -1,0 +1,161 @@
+{
+ "target": "Trend Category",
+ "target_description": "Five-class trend label (Strong Downtrend .. Strong Uptrend) from TrendScore = 0.7*((MA5/MA20) - 1) + 0.3*Return20, measured 7 days after the prediction date",
+ "algorithm": "XGBoost Classifier",
+ "forecast_horizon": 7,
+ "features": [
+  "Return20",
+  "MA5_MA20_Ratio",
+  "TrendScore",
+  "Return5",
+  "TrendScoreProj7"
+ ],
+ "feature_importance": {
+  "TrendScoreProj7": 0.4358,
+  "MA5_MA20_Ratio": 0.194,
+  "Return20": 0.139,
+  "Return5": 0.1157,
+  "TrendScore": 0.1155
+ },
+ "feature_sources": {
+  "Return20": "Student A /features",
+  "MA5_MA20_Ratio": "derived: Student B MA5 / MA20",
+  "TrendScore": "derived: 0.7*(MA5/MA20 - 1) + 0.3*Return20 (needs A and B)",
+  "Return5": "Student A /features",
+  "TrendScoreProj7": "owned by Student C: flat-price projection of TrendScore at t+7 from Kraken closes"
+ },
+ "classification_labels": [
+  "Strong Downtrend",
+  "Downtrend",
+  "Sideways",
+  "Uptrend",
+  "Strong Uptrend"
+ ],
+ "classification_rules": {
+  "Strong Downtrend": "TrendScore < -0.10",
+  "Downtrend": "-0.10 <= TrendScore < -0.02",
+  "Sideways": "-0.02 <= TrendScore <= 0.02",
+  "Uptrend": "0.02 < TrendScore <= 0.10",
+  "Strong Uptrend": "TrendScore > 0.10"
+ },
+ "metrics": {
+  "test_macro_f1": 0.4776,
+  "test_balanced_accuracy": 0.4621,
+  "test_accuracy": 0.5417,
+  "test_within_one_class": 0.8932,
+  "test_log_loss": 1.123,
+  "test_ece": 0.049
+ },
+ "baselines": {
+  "majority_class": 0.0718,
+  "stratified_random": 0.1708,
+  "persistence": 0.4675,
+  "flat_price_projection": 0.4679,
+  "xgboost_defaults": 0.4284
+ },
+ "per_class_recall": {
+  "Strong Downtrend": 0.1333,
+  "Downtrend": 0.6667,
+  "Sideways": 0.4103,
+  "Uptrend": 0.6986,
+  "Strong Uptrend": 0.4015
+ },
+ "per_token_macro_f1": {
+  "BTC": 0.4146,
+  "DOGE": 0.3632,
+  "ETH": 0.4561,
+  "SOL": 0.3694,
+  "TRX": 0.2211,
+  "XLM": 0.3412,
+  "XMR": 0.2796,
+  "XRP": 0.4914
+ },
+ "degradation_macro_f1": {
+  "all_peers_available": 0.4776,
+  "student_a_down": 0.4353,
+  "student_b_down": 0.4842,
+  "all_peers_down": 0.4837
+ },
+ "confusion_matrix": {
+  "labels": [
+   "Strong Downtrend",
+   "Downtrend",
+   "Sideways",
+   "Uptrend",
+   "Strong Uptrend"
+  ],
+  "matrix": [
+   [
+    2,
+    13,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    112,
+    32,
+    23,
+    0
+   ],
+   [
+    0,
+    61,
+    96,
+    77,
+    0
+   ],
+   [
+    0,
+    35,
+    19,
+    153,
+    12
+   ],
+   [
+    0,
+    12,
+    12,
+    55,
+    53
+   ]
+  ]
+ },
+ "training_period": {
+  "start": "2024-11-22",
+  "end": "2026-07-04"
+ },
+ "best_params": {
+  "learning_rate": 0.2216888426537831,
+  "max_depth": 5,
+  "min_child_weight": 2.3721369554855096,
+  "subsample": 0.5035287188633475,
+  "colsample_bytree": 0.8892016965842912,
+  "gamma": 4.35910394948163,
+  "reg_alpha": 0.08857600965028044,
+  "reg_lambda": 0.32371104434040615,
+  "n_estimators": 102,
+  "class_balance": "none"
+ },
+ "cv_strategy": "TimeSeriesSplit(n_splits=5, gap=7) over the DISTINCT DATES of the training period, so folds are ordered in time and the gap purges 7 days",
+ "n_trials": 50,
+ "supported_tokens": [
+  "BTC",
+  "ETH",
+  "XRP",
+  "SOL",
+  "DOGE",
+  "XLM",
+  "TRX",
+  "XMR"
+ ],
+ "owned_features": [
+  "Volatility20",
+  "MaxPrice20",
+  "MaxDrawdown",
+  "GapRisk"
+ ],
+ "model_version": "1.0.0",
+ "created_at": "2026-10-31T00:38:50+00:00"
+}
